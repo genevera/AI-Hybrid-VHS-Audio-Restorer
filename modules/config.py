@@ -44,7 +44,8 @@ LOG_FILE = Path("session_log.txt")
 
 VIDEO_EXTS = set(CONFIG.get("video_extensions") or ['.mp4', '.mkv', '.avi', '.mov'])
 AUDIO_EXTS = set(CONFIG.get("audio_extensions") or ['.wav', '.flac', '.mp3', '.m4a', '.aac', '.ogg'])
-_ext_union = CONFIG.get("extensions") or list(VIDEO_EXTS | AUDIO_EXTS)
+legacy_exts = set(CONFIG.get("extensions") or [])
+_ext_union = list(VIDEO_EXTS | AUDIO_EXTS | legacy_exts)
 
 EXTS = set(_ext_union)
 KEEP_INPUT_FILES = os.environ.get("AI_RESTORE_TEST_MODE") == "1"
