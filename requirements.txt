@@ -1,4 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/nightly/cu128
+--extra-index-url https://download.pytorch.org/whl/nightly/cu130
 --pre
 
 # Core Framework & Utilities
@@ -15,8 +15,8 @@ torchaudio
 
 # Audio Separation
 audio-separator[gpu]
-nvidia-cudnn-cu12
-nvidia-cublas-cu12
+nvidia-cudnn-cu13
+nvidia-cublas-cu13
 onnxruntime-gpu
 
 # Audio Sync (DTW)
