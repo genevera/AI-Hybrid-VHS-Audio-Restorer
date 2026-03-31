@@ -1,6 +1,24 @@
 
 from pathlib import Path
 import re
+import sys
+
+
+def _get_venv_site_packages():
+    """Return the site-packages directory inside the local venv, cross-platform."""
+    venv_path = Path("venv")
+    if sys.platform == "win32":
+        return venv_path / "Lib" / "site-packages"
+    # Linux / macOS: venv/lib/pythonX.Y/site-packages
+    lib_path = venv_path / "lib"
+    if lib_path.exists():
+        python_dirs = sorted(
+            [d for d in lib_path.iterdir() if d.name.startswith("python")],
+            key=lambda d: [int(x) for x in d.name[len("python"):].split(".") if x.isdigit()],
+        )
+        if python_dirs:
+            return python_dirs[0] / "site-packages"
+    return lib_path / "site-packages"  # fallback
 
 
 def _patch_deepspeed_usage(resemble_dir):
@@ -107,7 +125,7 @@ torchaudio.save = custom_save
 
 def patch_resemble_enhance():
     print("[Patch] Checking Resemble-Enhance (DeepSpeed Removal)...")
-    venv_site = Path("venv/Lib/site-packages")
+    venv_site = _get_venv_site_packages()
     if not venv_site.exists():
         print(" -> venv site-packages not found. Skipping.")
         return
@@ -123,7 +141,7 @@ def patch_resemble_enhance():
 
 def patch_resemble_cli_args():
     print("[Patch] Fix Resemble-Enhance CLI Arguments...")
-    venv_site = Path("venv/Lib/site-packages")
+    venv_site = _get_venv_site_packages()
     resemble_main = venv_site / "resemble_enhance/enhancer/__main__.py"
 
     if not resemble_main.exists():
@@ -220,7 +238,7 @@ def _scan_and_update_soundfile_lines(lines):
 
 def patch_soundfile_32bit_default():
     print("[Patch] Enforcing 32-bit Float Audio Globally...")
-    venv_site = Path("venv/Lib/site-packages")
+    venv_site = _get_venv_site_packages()
     sf_py = venv_site / "soundfile.py"
 
     if not sf_py.exists():
@@ -244,7 +262,7 @@ def patch_soundfile_32bit_default():
 
 def patch_common_separator_force_soundfile():
     print("[Patch] Forcing Audio-Separator to use 'soundfile' (and ignoring pydub)...")
-    venv_site = Path("venv/Lib/site-packages")
+    venv_site = _get_venv_site_packages()
     sep_py = venv_site / "audio_separator/separator/common_separator.py"
 
     if not sep_py.exists():

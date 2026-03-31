@@ -3,6 +3,7 @@ Tests for apply_patches.py
 Uses real file fixtures to achieve actual code coverage.
 """
 import os
+import sys
 import pytest
 
 import apply_patches
@@ -14,8 +15,13 @@ def mock_venv(tmp_path, monkeypatch):
     old_cwd = os.getcwd()
     os.chdir(tmp_path)
 
-    # Create base venv structure
-    venv_site = tmp_path / "venv" / "Lib" / "site-packages"
+    # Create a platform-appropriate venv site-packages directory so that
+    # _get_venv_site_packages() resolves correctly on both Windows and Linux.
+    if sys.platform == "win32":
+        venv_site = tmp_path / "venv" / "Lib" / "site-packages"
+    else:
+        python_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+        venv_site = tmp_path / "venv" / "lib" / python_ver / "site-packages"
     venv_site.mkdir(parents=True)
 
     yield tmp_path, venv_site

@@ -23,8 +23,8 @@ onnxruntime-gpu
 librosa
 fastdtw
 
-# Audio Enhancement (Resemble Enhance - Windows Fork)
-git+https://github.com/daswer123/resemble-enhance-windows.git
+# Audio Enhancement (Resemble Enhance)
+resemble-enhance
 
 # Resemble Enhance Dependencies
 transformers

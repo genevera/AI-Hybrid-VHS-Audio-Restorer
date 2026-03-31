@@ -20,12 +20,17 @@ from .config import LOG_FILE, DEBUG_LOGGING, EXTS
 
 # === AUTO-CONFIGURE PATH ===
 project_dir = Path(__file__).parent.parent.resolve()  # modules/..
-venv_scripts = project_dir / "venv" / "Scripts"
+# Platform-aware venv binary directory: Scripts on Windows, bin on Linux/macOS
+if sys.platform == "win32":
+    venv_scripts = project_dir / "venv" / "Scripts"
+else:
+    venv_scripts = project_dir / "venv" / "bin"
 
-# 1. Base Binary Paths
+# 1. Base Binary Paths (no .exe extension on Linux/macOS)
 FFMPEG_BIN = "ffmpeg"
-if (venv_scripts / "ffmpeg.exe").exists():
-    FFMPEG_BIN = str(venv_scripts / "ffmpeg.exe")
+_ffmpeg_name = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
+if (venv_scripts / _ffmpeg_name).exists():
+    FFMPEG_BIN = str(venv_scripts / _ffmpeg_name)
 
 # 2. NVIDIA / CUDA Library Injection (Critical for Hybrid GPUs)
 from .hardware import get_nvidia_paths
@@ -86,7 +91,7 @@ def log_msg(message, is_error=False, console=True, level="INFO"):
 
 
 if _venv_scripts_missing:
-    log_msg(f"Venv Scripts not found at: {project_dir / 'venv' / 'Scripts'}", level="DEBUG")
+    log_msg(f"Venv scripts not found at: {venv_scripts}", level="DEBUG")
 
 
 # === SUBPROCESS MANAGEMENT ===
