@@ -17,6 +17,7 @@ def mock_venv(tmp_path, monkeypatch):
     # Create base venv structure
     venv_site = tmp_path / "venv" / "Lib" / "site-packages"
     venv_site.mkdir(parents=True)
+    monkeypatch.setenv("VENV_SITE_PACKAGES", str(venv_site))
 
     yield tmp_path, venv_site
 

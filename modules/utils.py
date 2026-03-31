@@ -20,16 +20,35 @@ from .config import LOG_FILE, DEBUG_LOGGING, EXTS
 
 # === AUTO-CONFIGURE PATH ===
 project_dir = Path(__file__).parent.parent.resolve()  # modules/..
-venv_scripts = project_dir / "venv" / "Scripts"
+venv_bin = project_dir / "venv" / ("Scripts" if os.name == "nt" else "bin")
 
 # 1. Base Binary Paths
 FFMPEG_BIN = "ffmpeg"
-if (venv_scripts / "ffmpeg.exe").exists():
-    FFMPEG_BIN = str(venv_scripts / "ffmpeg.exe")
+FFPROBE_BIN = "ffprobe"
+
+ffmpeg_candidates = [
+    venv_bin / "ffmpeg.exe",
+    venv_bin / "ffmpeg",
+]
+for candidate in ffmpeg_candidates:
+    if candidate.exists():
+        FFMPEG_BIN = str(candidate)
+        break
+
+ffprobe_candidates = [
+    venv_bin / "ffprobe.exe",
+    venv_bin / "ffprobe",
+]
+for candidate in ffprobe_candidates:
+    if candidate.exists():
+        FFPROBE_BIN = str(candidate)
+        break
 
 # 2. NVIDIA / CUDA Library Injection (Critical for Hybrid GPUs)
 from .hardware import get_nvidia_paths
-extra_paths = [str(venv_scripts)]
+extra_paths = []
+if venv_bin.exists():
+    extra_paths.append(str(venv_bin))
 extra_paths.extend(get_nvidia_paths())
 
 current_path = os.environ.get("PATH", "")
@@ -43,8 +62,6 @@ for p in extra_paths:
 
 if added_any:
     os.environ["PATH"] = os.pathsep.join(path_list)
-
-_venv_scripts_missing = not venv_scripts.exists()
 
 
 def log_msg(message, is_error=False, console=True, level="INFO"):
@@ -85,8 +102,8 @@ def log_msg(message, is_error=False, console=True, level="INFO"):
         pass
 
 
-if _venv_scripts_missing:
-    log_msg(f"Venv Scripts not found at: {project_dir / 'venv' / 'Scripts'}", level="DEBUG")
+if not venv_bin.exists():
+    log_msg(f"Venv bin directory not found at: {venv_bin}", level="DEBUG")
 
 
 # === SUBPROCESS MANAGEMENT ===

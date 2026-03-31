@@ -158,22 +158,27 @@ process_mode: "hybrid"   # 'hybrid' (Separation+Enhance) or 'denoise_only' (Fast
 
 ## Usage
 
-1.  Run `install_dependencies.ps1` to set up the environment.
+1. Run the installer to set up the environment:
+   - **Windows**: `install_dependencies.ps1`
+   - **Linux/macOS**: `bash install_dependencies.sh`
 
-### Option A: Drag & Drop (Recommended)
-Simply **drag and drop** your video file(s) or a folder containing videos directly onto `start.bat` (or the Python script). 
+### Option A: Drag & Drop (Windows)
+Simply **drag and drop** your video file(s) or a folder containing videos directly onto `start.bat` (or the Python script).
 *   **Output**: The restored video will be saved in the **same folder** as your original video.
 
-### Option B: Interactive Mode (Default)
-Double-click `start.bat` without any files.
-- The script will Launch and show your System Stats.
-- Press **Enter** to automatically scan and process all files in the `input` folder.
+### Option B: Interactive Mode (Cross-Platform)
+- **Windows**: Double-click `start.bat` without any files, then press **Enter** to scan the `input` folder.
+- **Linux/macOS**: Activate the venv (`source venv/bin/activate`) and run `python restore_audio_hybrid.py`, then press **Enter** to scan the `input` folder.
 *   **Output**: The restored videos will be saved in the **same folder** as the original videos.
 
 ### Option C: CLI
 Run via command line with arguments:
 ```powershell
+# Windows
 python restore_audio_hybrid.py "C:\Path\To\Video.mp4"
+
+# Linux/macOS
+python restore_audio_hybrid.py "/home/user/Video.mp4"
 ```
 *   **Output**: The restored video will be saved in the **same folder** as the input video.
 

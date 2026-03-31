@@ -1,6 +1,32 @@
 
+import os
 from pathlib import Path
 import re
+
+
+def _find_site_packages():
+    """
+    Returns the virtualenv site-packages path for both Windows and POSIX layouts.
+    Honors VENV_SITE_PACKAGES to simplify testing/overrides.
+    """
+    override = os.environ.get("VENV_SITE_PACKAGES")
+    if override:
+        return Path(override)
+
+    candidates = [
+        Path("venv/Lib/site-packages"),  # Windows
+    ]
+
+    venv_dir = Path("venv")
+    # Common POSIX layouts: lib/pythonX.Y/site-packages and lib64 equivalents
+    candidates.extend(venv_dir.glob("lib/python*/site-packages"))
+    candidates.extend(venv_dir.glob("lib64/python*/site-packages"))
+
+    for cand in candidates:
+        if cand.exists():
+            return cand
+
+    return None
 
 
 def _patch_deepspeed_usage(resemble_dir):
@@ -107,8 +133,8 @@ torchaudio.save = custom_save
 
 def patch_resemble_enhance():
     print("[Patch] Checking Resemble-Enhance (DeepSpeed Removal)...")
-    venv_site = Path("venv/Lib/site-packages")
-    if not venv_site.exists():
+    venv_site = _find_site_packages()
+    if not venv_site or not venv_site.exists():
         print(" -> venv site-packages not found. Skipping.")
         return
 
@@ -123,7 +149,11 @@ def patch_resemble_enhance():
 
 def patch_resemble_cli_args():
     print("[Patch] Fix Resemble-Enhance CLI Arguments...")
-    venv_site = Path("venv/Lib/site-packages")
+    venv_site = _find_site_packages()
+    if not venv_site or not venv_site.exists():
+        print(" -> venv site-packages not found. Skipping.")
+        return
+
     resemble_main = venv_site / "resemble_enhance/enhancer/__main__.py"
 
     if not resemble_main.exists():
@@ -220,7 +250,11 @@ def _scan_and_update_soundfile_lines(lines):
 
 def patch_soundfile_32bit_default():
     print("[Patch] Enforcing 32-bit Float Audio Globally...")
-    venv_site = Path("venv/Lib/site-packages")
+    venv_site = _find_site_packages()
+    if not venv_site or not venv_site.exists():
+        print(" -> venv site-packages not found. Skipping.")
+        return
+
     sf_py = venv_site / "soundfile.py"
 
     if not sf_py.exists():
@@ -244,7 +278,11 @@ def patch_soundfile_32bit_default():
 
 def patch_common_separator_force_soundfile():
     print("[Patch] Forcing Audio-Separator to use 'soundfile' (and ignoring pydub)...")
-    venv_site = Path("venv/Lib/site-packages")
+    venv_site = _find_site_packages()
+    if not venv_site or not venv_site.exists():
+        print(" -> venv site-packages not found. Skipping.")
+        return
+
     sep_py = venv_site / "audio_separator/separator/common_separator.py"
 
     if not sep_py.exists():

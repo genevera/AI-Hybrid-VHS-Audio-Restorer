@@ -9,7 +9,7 @@ import torch
 from .utils import (
     log_msg, attempt_cpu_run_with_retry, attempt_run_with_retry,
     run_command_with_progress, is_valid_audio, is_valid_video,
-    FFMPEG_BIN
+    FFMPEG_BIN, FFPROBE_BIN
 )
 from .config import (
     KEEP_INPUT_FILES,
@@ -34,7 +34,7 @@ def get_video_duration_sec(video_path):  # pragma: no cover
     """Gets video duration using ffprobe."""
     try:
         cmd = [
-            "ffprobe", "-v", "error", "-show_entries",
+            FFPROBE_BIN, "-v", "error", "-show_entries",
             "format=duration", "-of", "default=noprint_wrappers=1:nokey=1",
             str(video_path)
         ]

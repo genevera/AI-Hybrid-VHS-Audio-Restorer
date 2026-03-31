@@ -23,8 +23,9 @@ onnxruntime-gpu
 librosa
 fastdtw
 
-# Audio Enhancement (Resemble Enhance - Windows Fork)
-git+https://github.com/daswer123/resemble-enhance-windows.git
+# Audio Enhancement (Resemble Enhance - Platform Specific)
+git+https://github.com/daswer123/resemble-enhance-windows.git ; platform_system == "Windows"
+git+https://github.com/resemble-ai/resemble-enhance.git ; platform_system != "Windows"
 
 # Resemble Enhance Dependencies
 transformers
@@ -36,4 +37,3 @@ loguru
 pandas
 matplotlib
 tabulate
-
