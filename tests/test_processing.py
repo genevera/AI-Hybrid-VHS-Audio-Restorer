@@ -339,6 +339,28 @@ def test_final_mix_step(mock_is_valid_vid, mock_dur, mock_retry, tmp_path):
     mock_retry.assert_called_once()
 
 
+@patch("modules.processing.attempt_cpu_run_with_retry")
+@patch("modules.processing.is_valid_audio")
+def test_final_audio_mix_step(mock_valid, mock_retry, tmp_path):
+    mock_valid.side_effect = iter([False] + [True] * 20)
+    """Test final audio mix step."""
+    vocals = tmp_path / "vocals.wav"
+    vocals.write_text("vocals")
+    background = tmp_path / "background.wav"
+    background.write_text("background")
+    output = tmp_path / "final.wav"
+
+    def create_tmp(*args, **kwargs):
+        tmp_wav = output.with_suffix(".tmp.wav")
+        tmp_wav.write_text("fake audio")
+        return True
+
+    mock_retry.side_effect = create_tmp
+
+    modules.processing._final_audio_mix_step(vocals, background, output)
+    mock_retry.assert_called_once()
+
+
 @patch("modules.processing._extract_audio_step")
 @patch("modules.processing._separate_stems_step")
 @patch("modules.processing._enhance_vocals_step")
@@ -427,6 +449,28 @@ def test_process_hybrid_audio_preservation(
 @patch("modules.processing._enhance_vocals_step", return_value=Path("ev.wav"))
 @patch("modules.processing._denoise_background_step", return_value=Path("db.wav"))
 @patch("modules.sync._align_stems")
+@patch("modules.processing._final_audio_mix_step")
+@patch("modules.processing.is_valid_audio")
+def test_process_audio_only_flow(
+    mock_valid, mock_final, mock_align, mock_den, mock_enh, mock_sep, mock_ext, tmp_path
+):
+    """Test audio-only processing branch."""
+    audio = tmp_path / "a.wav"
+    audio.write_text("audio")
+
+    # Validation: initial skip False, cleanup True
+    mock_valid.side_effect = [False, True]
+
+    res = modules.processing.process_hybrid_audio(audio, "GPU")
+    assert res is True
+    mock_final.assert_called_once()
+
+
+@patch("modules.processing._extract_audio_step")
+@patch("modules.processing._separate_stems_step", return_value=(Path("v.wav"), Path("b.wav")))
+@patch("modules.processing._enhance_vocals_step", return_value=Path("ev.wav"))
+@patch("modules.processing._denoise_background_step", return_value=Path("db.wav"))
+@patch("modules.sync._align_stems")
 @patch("modules.processing._final_mix_step")
 @patch("modules.processing.shutil.rmtree", side_effect=OSError("Access Denied"))
 @patch("modules.processing.is_valid_video")
@@ -495,6 +539,18 @@ def test_final_mix_step_failure(mock_dur, mock_valid, mock_retry, tmp_path):
     out = tmp_path / "out.mp4"
     with pytest.raises(Exception, match="Final Mix Failed"):
         modules.processing._final_mix_step(video, voc, bg, out)
+
+@patch("modules.processing.attempt_cpu_run_with_retry")
+@patch("modules.processing.is_valid_audio", return_value=False)
+def test_final_audio_mix_step_failure(mock_valid, mock_retry, tmp_path):
+    """Test audio-only mix raises exception if output is invalid."""
+    voc = tmp_path / "v.wav"
+    voc.touch()
+    bg = tmp_path / "b.wav"
+    bg.touch()
+    out = tmp_path / "out.wav"
+    with pytest.raises(Exception, match="Final Mix Failed"):
+        modules.processing._final_audio_mix_step(voc, bg, out)
 
 
 @patch("modules.processing.subprocess.check_output")

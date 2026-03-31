@@ -8,7 +8,10 @@ def load_config():
     defaults = {
         "vocal_mix_volume": 1.0,
         "background_mix_volume": 1.0,
-        "extensions": ['.mp4', '.mkv', '.avi', '.mov'],
+        "video_extensions": ['.mp4', '.mkv', '.avi', '.mov'],
+        "audio_extensions": ['.wav', '.flac', '.mp3', '.m4a', '.aac', '.ogg'],
+        # Backward compatibility: unified list used by UI scanning
+        "extensions": None,
         "vocals_model": "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
         "background_model": "UVR-MDX-NET-Inst_HQ_3.onnx",
         "denoise_model": "UVR-DeNoise-Lite.pth",
@@ -39,7 +42,11 @@ INPUT_DIR = Path("input")
 OUTPUT_DIR = Path("output")
 LOG_FILE = Path("session_log.txt")
 
-EXTS = set(CONFIG["extensions"])
+VIDEO_EXTS = set(CONFIG.get("video_extensions") or ['.mp4', '.mkv', '.avi', '.mov'])
+AUDIO_EXTS = set(CONFIG.get("audio_extensions") or ['.wav', '.flac', '.mp3', '.m4a', '.aac', '.ogg'])
+_ext_union = CONFIG.get("extensions") or list(VIDEO_EXTS | AUDIO_EXTS)
+
+EXTS = set(_ext_union)
 KEEP_INPUT_FILES = os.environ.get("AI_RESTORE_TEST_MODE") == "1"
 
 # Audio mix levels

@@ -14,7 +14,8 @@ from .utils import (
 from .config import (
     KEEP_INPUT_FILES,
     VOCALS_MODEL, BACKGROUND_MODEL, DENOISE_MODEL, ENHANCE_NFE, ENHANCE_TAU,
-    PROCESS_MODE, VOCAL_MIX_VOL, BACKGROUND_MIX_VOL
+    PROCESS_MODE, VOCAL_MIX_VOL, BACKGROUND_MIX_VOL,
+    AUDIO_EXTS, VIDEO_EXTS
 )
 from .hardware import (
     CPU_THREADS, GPU_BATCH_SIZE, CUDA_DEVICE
@@ -28,6 +29,12 @@ def get_audio_duration_sec(wav_path):
             return f.frames / f.samplerate
     except Exception:
         return None
+
+
+def _is_audio_only_input(media_path: Path) -> bool:
+    """Returns True when the source is an audio file (no video stream)."""
+    suffix = media_path.suffix.lower()
+    return suffix in AUDIO_EXTS and suffix not in VIDEO_EXTS
 
 
 def get_video_duration_sec(video_path):  # pragma: no cover
@@ -408,6 +415,54 @@ def _final_mix_step(
         raise Exception("Final Mix Failed: Output video invalid/empty.")
 
 
+def _final_audio_mix_step(
+    aligned_vocals_wav, aligned_background_wav, final_output_audio, total_duration=None
+):
+    """Step 5 (Audio-Only): Mix stems into 32-bit float WAV."""
+    if is_valid_audio(final_output_audio):
+        log_msg(f"  [Step 5/5] Skipping Final Mix (exists: {final_output_audio.name})")
+        return
+
+    log_msg("  [Step 5/5] Final Audio Mix (32-bit Float)...")
+
+    if not aligned_vocals_wav.exists():
+        raise FileNotFoundError(f"Aligned vocals not found: {aligned_vocals_wav}")
+    if not aligned_background_wav.exists():
+        raise FileNotFoundError(f"Aligned background not found: {aligned_background_wav}")
+
+    tmp_output = final_output_audio.with_suffix(".tmp.wav")
+
+    def build_mix_cmd(threads):
+        return [
+            FFMPEG_BIN, "-hide_banner", "-y",
+            "-i", str(aligned_vocals_wav),
+            "-i", str(aligned_background_wav),
+            "-filter_complex",
+            f"[0:a]volume={VOCAL_MIX_VOL}[v];"
+            f"[1:a]volume={BACKGROUND_MIX_VOL}[m];"
+            "[v][m]amix=inputs=2:duration=longest:normalize=0[out]",
+            "-map", "[out]",
+            "-c:a", "pcm_f32le",
+            str(tmp_output)
+        ]
+
+    attempt_cpu_run_with_retry(
+        build_mix_cmd, CPU_THREADS,
+        description="Final Mixing (Audio)",
+        total_duration=total_duration
+    )
+
+    if is_valid_audio(tmp_output):
+        if final_output_audio.exists():
+            final_output_audio.unlink()
+        tmp_output.rename(final_output_audio)
+        log_msg(f"  [System] Success! Saved to: {final_output_audio.name}")
+    else:  # pragma: no cover
+        if tmp_output.exists():
+            tmp_output.unlink()
+        raise Exception("Final Mix Failed: Output audio invalid/empty.")
+
+
 def process_hybrid_audio(video_path, gpu_name, target_output_dir=None):
     """Main Orchestrator."""
     log_msg(f"\n[System] Processing Task: {video_path.name}")
@@ -416,6 +471,7 @@ def process_hybrid_audio(video_path, gpu_name, target_output_dir=None):
         log_msg(f"  [Error] File not found: {video_path}", is_error=True)
         return False
 
+    is_audio_only = _is_audio_only_input(video_path)
     # Create safe working directory pattern
     # Use a hidden temp dir in the same location to ensure atomic moves work
     work_dir = video_path.parent / f".temp_work_{video_path.stem}"
@@ -424,11 +480,13 @@ def process_hybrid_audio(video_path, gpu_name, target_output_dir=None):
     else:
         output_dir = video_path.parent
 
-    # Define final output name
-    final_output_video = output_dir / f"{video_path.stem}_Hybrid_Cleaned{video_path.suffix}"
+    output_suffix = ".wav" if is_audio_only else video_path.suffix
+    final_output = output_dir / f"{video_path.stem}_Hybrid_Cleaned{output_suffix}"
+    _validate_output = is_valid_audio if is_audio_only else is_valid_video
 
+    # Define final output name
     # Resume checks: If final exists, skip
-    if is_valid_video(final_output_video):
+    if _validate_output(final_output):
         log_msg("  [System] Output already exists. Skipping.")
         return True
 
@@ -437,12 +495,12 @@ def process_hybrid_audio(video_path, gpu_name, target_output_dir=None):
         original_wav = work_dir / "original.wav"
 
         # Step 0: Video Duration
-        video_dur = get_video_duration_sec(video_path)
-        if video_dur:
-            log_msg(f"  [Info] Duration: {format_time(video_dur)}")
+        media_dur = get_audio_duration_sec(video_path) if is_audio_only else get_video_duration_sec(video_path)
+        if media_dur:
+            log_msg(f"  [Info] Duration: {format_time(media_dur)}")
 
         # Step 1: Extract Audio
-        _extract_audio_step(video_path, original_wav, total_duration=video_dur)
+        _extract_audio_step(video_path, original_wav, total_duration=media_dur)
 
         # Step 2: Separate Stems
         if PROCESS_MODE == "denoise_only":
@@ -458,19 +516,19 @@ def process_hybrid_audio(video_path, gpu_name, target_output_dir=None):
         separation_out_dir.mkdir(exist_ok=True)
 
         vocals_wav, background_wav = _separate_stems_step(
-            original_wav, separation_out_dir, total_duration=video_dur
+            original_wav, separation_out_dir, total_duration=media_dur
         )
 
         # Step 3: Enhance Vocals
         enhanced_vocals_dir = work_dir / "enhanced_vocals"
         enhanced_vocals_wav = _enhance_vocals_step(
-            vocals_wav, enhanced_vocals_dir, work_dir, total_duration=video_dur
+            vocals_wav, enhanced_vocals_dir, work_dir, total_duration=media_dur
         )
 
         # Step 4: Denoise Background
         denoised_background_dir = work_dir / "denoised_background"
         denoised_background_wav = _denoise_background_step(
-            background_wav, denoised_background_dir, total_duration=video_dur
+            background_wav, denoised_background_dir, total_duration=media_dur
         )
 
         # Step 5: Sync
@@ -484,12 +542,18 @@ def process_hybrid_audio(video_path, gpu_name, target_output_dir=None):
         _align_stems(original_wav, denoised_background_wav, aligned_background)
 
         # Step 6: Final Mix
-        _final_mix_step(
-            video_path, aligned_vocals, aligned_background, final_output_video,
-            total_duration=video_dur
-        )
+        if is_audio_only:
+            _final_audio_mix_step(
+                aligned_vocals, aligned_background, final_output,
+                total_duration=media_dur
+            )
+        else:
+            _final_mix_step(
+                video_path, aligned_vocals, aligned_background, final_output,
+                total_duration=media_dur
+            )
 
-        log_msg(f"  [System] Task Completed: {video_path.name}")
+        log_msg(f"  [System] Task Completed: {final_output.name}")
         return True
 
     except Exception as e:
@@ -499,7 +563,7 @@ def process_hybrid_audio(video_path, gpu_name, target_output_dir=None):
     finally:
         # Cleanup Temp Directory
         if work_dir.exists() and not KEEP_INPUT_FILES:
-            if is_valid_video(final_output_video):
+            if _validate_output(final_output):
                 try:
                     shutil.rmtree(work_dir, ignore_errors=True)
                 except Exception:

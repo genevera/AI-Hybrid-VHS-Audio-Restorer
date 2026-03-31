@@ -141,12 +141,19 @@ The application uses a `config.yaml` file for easy customization. A default conf
 vocal_mix_volume: 1.0
 music_mix_volume: 1.0
 
-# Supported Video Extensions
-extensions:
+# Supported Extensions
+video_extensions:
   - .mp4
   - .mkv
   - .avi
   - .mov
+audio_extensions:
+  - .wav
+  - .flac
+  - .mp3
+  - .m4a
+  - .aac
+# extensions: []  # Optional override; defaults to video+audio lists
 
 # Synchronization Method
 sync_method: "shift"     # 'shift' (default) or 'dtw' (correction for wow/flutter)
@@ -163,8 +170,8 @@ process_mode: "hybrid"   # 'hybrid' (Separation+Enhance) or 'denoise_only' (Fast
    - **Linux/macOS**: `bash install_dependencies.sh`
 
 ### Option A: Drag & Drop (Windows)
-Simply **drag and drop** your video file(s) or a folder containing videos directly onto `start.bat` (or the Python script).
-*   **Output**: The restored video will be saved in the **same folder** as your original video.
+Simply **drag and drop** your video/audio file(s) or a folder containing videos directly onto `start.bat` (or the Python script).
+*   **Output**: The restored media will be saved in the **same folder** as your original files (videos stay video containers; audio exports as 32-bit WAV).
 
 ### Option B: Interactive Mode (Cross-Platform)
 - **Windows**: Double-click `start.bat` without any files, then press **Enter** to scan the `input` folder.
@@ -176,11 +183,13 @@ Run via command line with arguments:
 ```powershell
 # Windows
 python restore_audio_hybrid.py "C:\Path\To\Video.mp4"
+python restore_audio_hybrid.py "C:\Path\To\Audio.wav"
 
 # Linux/macOS
 python restore_audio_hybrid.py "/home/user/Video.mp4"
+python restore_audio_hybrid.py "/home/user/Audio.flac"
 ```
-*   **Output**: The restored video will be saved in the **same folder** as the input video.
+*   **Output**: The restored media will be saved in the **same folder** as the input (audio outputs as `_Hybrid_Cleaned.wav`).
 
 3.  Find the restored videos in `output`.
 
